@@ -13,6 +13,8 @@ import { OverviewDashboard } from './views/OverviewDashboard';
 import { LiveBurnInLab } from './views/LiveBurnInLab';
 import { LotIntelligenceView } from './views/LotIntelligenceView';
 import { ComponentForensicsView } from './views/ComponentForensicsView';
+import { PredictionsView } from './views/PredictionsView';
+import { RiskAlertsView } from './views/RiskAlertsView';
 import { ModelValidationView } from './views/ModelValidationView';
 import { TraditionalVsVigilXView } from './views/TraditionalVsVigilXView';
 import { AlertCircle, RefreshCw } from 'lucide-react';
@@ -160,23 +162,43 @@ export const App: React.FC = () => {
 
   const activeLotFingerprint = lots.find((l) => l.lot_id === (componentDetails?.lot_id ?? selectedLotId)) || lots[0] || null;
 
+  // Calculate live alert count
+  const alertCount = (metrics?.components ?? []).filter(
+    (c) => c.decision === 'HOLD / REVIEW' || c.decision === 'WATCH' || c.absolute_status === 'BREACHED'
+  ).length;
+
+  const pageTitleMap: Record<string, string> = {
+    overview: 'Overview',
+    lab: 'Live Burn-In',
+    lots: 'Lot Intelligence',
+    forensics: 'Component Forensics',
+    predictions: 'Predictions',
+    alerts: 'Risk Alerts',
+    validation: 'Model Validation',
+    comparison: 'Benchmarking'
+  };
+
   return (
-    <div className="min-h-screen bg-[#F4F6F9] text-slate-900 flex font-sans antialiased">
-      {/* 1. Left Aerospace Mission Control Sidebar */}
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex font-sans antialiased">
+      {/* 1. Left Compact Navigation Rail (Section 4) */}
       <Sidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onOpenEvidenceModal={() => setIsEvidenceModalOpen(true)}
+        alertCount={alertCount}
       />
 
-      {/* 2. Main Content Wrapper */}
+      {/* 2. Main Analytical Workspace */}
       <div className="flex-1 min-w-0 flex flex-col min-h-screen">
-        {/* Top Header Bar */}
+        {/* Minimal Global Header (Section 5) */}
         <Header
           metrics={metrics}
           currentHour={currentHour}
           isRunning={isRunning}
           speed={speed}
+          selectedComponentId={selectedComponentId}
+          selectedLotId={selectedLotId}
+          pageTitle={pageTitleMap[activeTab] || 'Overview'}
           onStart={handleStart}
           onPause={handlePause}
           onReset={handleReset}
@@ -184,9 +206,9 @@ export const App: React.FC = () => {
           onHeroDemo={handleHeroDemo}
         />
 
-        {/* API Connectivity Error Banner */}
+        {/* API Error Banner */}
         {apiError && (
-          <div className="bg-rose-50 border-b border-rose-200 px-6 py-2.5 text-xs text-rose-800 flex items-center justify-between">
+          <div className="bg-rose-50 border-b border-rose-200 px-6 py-2 text-xs text-rose-800 flex items-center justify-between">
             <div className="flex items-center space-x-2 font-medium">
               <AlertCircle className="w-4 h-4 text-rose-600" />
               <span>{apiError}</span>
@@ -201,7 +223,7 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* Active Page View */}
+        {/* Active Page View Container */}
         <main className="flex-1 p-4 md:p-6 overflow-y-auto">
           {activeTab === 'overview' && (
             <OverviewDashboard
@@ -265,6 +287,35 @@ export const App: React.FC = () => {
             />
           )}
 
+          {activeTab === 'predictions' && (
+            <PredictionsView
+              component={componentDetails}
+              lotFingerprint={activeLotFingerprint}
+              modelPerf={modelPerf}
+              currentHour={currentHour}
+              metrics={metrics}
+              onSelectComponent={(cid) => {
+                setSelectedComponentId(cid);
+                refreshComponent(cid);
+              }}
+              onOpenEvidenceModal={() => setIsEvidenceModalOpen(true)}
+            />
+          )}
+
+          {activeTab === 'alerts' && (
+            <RiskAlertsView
+              metrics={metrics}
+              currentHour={currentHour}
+              selectedComponentId={selectedComponentId}
+              onSelectComponent={(cid) => {
+                setSelectedComponentId(cid);
+                refreshComponent(cid);
+              }}
+              onOpenEvidenceModal={() => setIsEvidenceModalOpen(true)}
+              onNavigateTab={setActiveTab}
+            />
+          )}
+
           {activeTab === 'validation' && (
             <ModelValidationView performance={modelPerf} />
           )}
@@ -274,7 +325,7 @@ export const App: React.FC = () => {
           )}
         </main>
 
-        {/* Global Traceable Reliability Evidence Chain Modal */}
+        {/* Global Traceable Reliability Evidence Chain Modal (Section 22) */}
         <EvidenceChainModal
           isOpen={isEvidenceModalOpen}
           onClose={() => setIsEvidenceModalOpen(false)}

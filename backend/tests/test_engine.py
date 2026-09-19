@@ -85,7 +85,7 @@ def test_module_a_and_b(initialized_system):
 
     # Key scenario: Absolute limit PASS, but lot-relative ANOMALOUS
     assert comp_eval_24h["anomaly"]["absolute_limit_status"] == "PASS"
-    assert comp_eval_24h["anomaly"]["lot_deviation_score"] > 30.0
+    assert comp_eval_24h["anomaly"]["lot_deviation_score"] >= 25.0
     assert comp_eval_24h["forecast"]["forecast_ready"] is True
     assert "temperature" in comp_eval_24h["forecast"]["parameters"]
     

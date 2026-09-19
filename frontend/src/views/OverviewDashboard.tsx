@@ -5,7 +5,7 @@ import {
   LotFingerprint,
   ModelPerformanceData
 } from '../types';
-import { HeroBannerCard } from '../components/HeroBannerCard';
+import { CommandSummaryCard } from '../components/CommandSummaryCard';
 import { SummaryKPICards } from '../components/SummaryKPICards';
 import { LiveBurnInMonitorCard } from '../components/LiveBurnInMonitorCard';
 import { CurrentComponentPanel } from '../components/CurrentComponentPanel';
@@ -33,19 +33,19 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   onNavigateTab
 }) => {
   return (
-    <div className="space-y-4 max-w-[1600px] mx-auto">
-      {/* 1. Top Hero Banner Card */}
-      <HeroBannerCard
+    <div className="space-y-4 max-w-[1680px] mx-auto pb-6">
+      {/* 1. Top Engineering Application Status Bar */}
+      <CommandSummaryCard
         component={selectedComponent}
         currentHour={currentHour}
       />
 
-      {/* 2. Row of 7 Summary KPI Cards */}
+      {/* 2. 7 Uniform Clean White KPI Cards */}
       <SummaryKPICards metrics={metrics} />
 
-      {/* 3. Main 2-Column Section: Live Burn-In Monitor (Left) & Current Component Forensics (Right) */}
+      {/* 3. Primary Analytical Workspace: LOT RELIABILITY ENVELOPE & CURRENT COMPONENT */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left Column: Live Burn-In Monitor (~68% width / 8 cols on lg) */}
+        {/* Primary Anchor: Lot Reliability Envelope Chart (8 cols) */}
         <div className="lg:col-span-8">
           <LiveBurnInMonitorCard
             component={selectedComponent}
@@ -56,7 +56,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           />
         </div>
 
-        {/* Right Column: Current Component Panel (~32% width / 4 cols on lg) */}
+        {/* Contextual Right Column: Current Component Inspector (4 cols) */}
         <div className="lg:col-span-4">
           <CurrentComponentPanel
             component={selectedComponent}
@@ -66,7 +66,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         </div>
       </div>
 
-      {/* 4. Bottom Section: Channel Trends, Trajectory, Lot Intelligence, Model Performance */}
+      {/* 4. Bottom Contextual Engineering Cards */}
       <BottomDashboardPanels
         component={selectedComponent}
         lotFingerprint={lotFingerprint}
