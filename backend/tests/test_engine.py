@@ -106,7 +106,7 @@ def test_evidence_chain_and_counterfactual(initialized_system):
     assert len(chain["why_contributors"]) >= 1
     assert "what_if" in chain
 
-def test_fastapi_endpoints():
+def test_fastapi_endpoints(initialized_system):
     """Verify REST API responses with TestClient."""
     client = TestClient(app)
     

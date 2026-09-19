@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from app.config import EARLY_DECISION_HOUR, TOTAL_BURNIN_HOURS, SAFETY_THRESHOLDS, ABSOLUTE_LIMITS
 
-# Attempt to import XGBoost, fallback to RandomForest
+# Regressor Backends: XGBoost -> Scikit-learn RandomForest -> Lightweight Numpy Ridge Regressor
 USE_XGBOOST = False
 try:
     from xgboost import XGBRegressor
@@ -21,7 +21,38 @@ try:
 except Exception:
     USE_XGBOOST = False
 
-from sklearn.ensemble import RandomForestRegressor
+USE_SKLEARN = False
+try:
+    from sklearn.ensemble import RandomForestRegressor
+    USE_SKLEARN = True
+except Exception:
+    USE_SKLEARN = False
+
+class NumpyRidgeRegressor:
+    """Lightweight analytical ridge regression running purely on NumPy."""
+    def __init__(self, alpha: float = 1.0):
+        self.alpha = alpha
+        self.weights = None
+        self.mean_X = None
+        self.std_X = None
+
+    def fit(self, X, y):
+        X_arr = np.asarray(X, dtype=float)
+        y_arr = np.asarray(y, dtype=float)
+        self.mean_X = np.mean(X_arr, axis=0)
+        self.std_X = np.std(X_arr, axis=0)
+        self.std_X[self.std_X < 1e-6] = 1.0
+        X_norm = (X_arr - self.mean_X) / self.std_X
+        X_b = np.hstack([np.ones((X_norm.shape[0], 1)), X_norm])
+        reg = self.alpha * np.eye(X_b.shape[1])
+        reg[0, 0] = 0.0
+        self.weights = np.linalg.solve(X_b.T @ X_b + reg, X_b.T @ y_arr)
+
+    def predict(self, X):
+        X_arr = np.asarray(X, dtype=float)
+        X_norm = (X_arr - self.mean_X) / self.std_X
+        X_b = np.hstack([np.ones((X_norm.shape[0], 1)), X_norm])
+        return X_b @ self.weights
 
 class EarlyDriftPredictor:
     """
@@ -35,7 +66,12 @@ class EarlyDriftPredictor:
         self.validation_metrics: Dict[str, Dict[str, float]] = {}
         self.parameters = ["standby_current", "temperature", "current", "voltage"]
         self.is_trained = False
-        self.model_backend = "XGBoost" if USE_XGBOOST else "RandomForest"
+        if USE_XGBOOST:
+            self.model_backend = "XGBoost"
+        elif USE_SKLEARN:
+            self.model_backend = "RandomForest"
+        else:
+            self.model_backend = "NumpyRidge"
 
     def train_models(self, full_dataset_records: List[Dict[str, Any]]):
         """
@@ -106,12 +142,14 @@ class EarlyDriftPredictor:
                     random_state=42,
                     verbosity=0
                 )
-            else:
+            elif USE_SKLEARN:
                 model = RandomForestRegressor(
                     n_estimators=80,
                     max_depth=5,
                     random_state=42
                 )
+            else:
+                model = NumpyRidgeRegressor(alpha=0.5)
 
             model.fit(X_train, y_train)
             preds_val = model.predict(X_val)

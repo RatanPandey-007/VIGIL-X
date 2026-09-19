@@ -19,7 +19,34 @@ Outputs:
 from typing import Dict, Any, List, Optional
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import IsolationForest
+USE_SKLEARN_IFOREST = False
+try:
+    from sklearn.ensemble import IsolationForest
+    USE_SKLEARN_IFOREST = True
+except Exception:
+    USE_SKLEARN_IFOREST = False
+
+class NumpyOutlierDetector:
+    """Lightweight multivariate statistical outlier detector in pure NumPy."""
+    def __init__(self, contamination: float = 0.10):
+        self.contamination = contamination
+        self.mean_ = None
+        self.std_ = None
+        self.threshold_ = 0.0
+
+    def fit(self, X):
+        X_arr = np.asarray(X, dtype=float)
+        self.mean_ = np.mean(X_arr, axis=0)
+        self.std_ = np.std(X_arr, axis=0)
+        self.std_[self.std_ < 1e-6] = 1.0
+        z_sq = np.sum(((X_arr - self.mean_) / self.std_) ** 2, axis=1)
+        self.threshold_ = float(np.percentile(z_sq, 100.0 * (1.0 - self.contamination)))
+
+    def decision_function(self, X):
+        X_arr = np.asarray(X, dtype=float)
+        z_sq = np.sum(((X_arr - self.mean_) / self.std_) ** 2, axis=1)
+        return (self.threshold_ - z_sq) / (self.threshold_ + 1e-4)
+
 from app.config import ABSOLUTE_LIMITS
 
 class DynamicAnomalyEngine:
@@ -28,7 +55,7 @@ class DynamicAnomalyEngine:
     """
 
     def __init__(self):
-        self.iforest_models: Dict[str, IsolationForest] = {}
+        self.iforest_models: Dict[str, Any] = {}
         self.parameters = ["temperature", "standby_current", "voltage", "current", "power"]
 
     def fit_lot_models(self, records: List[Dict[str, Any]]):
@@ -53,11 +80,14 @@ class DynamicAnomalyEngine:
 
             if len(feature_rows) >= 5:
                 feat_df = pd.DataFrame(feature_rows).drop(columns=["component_id"])
-                clf = IsolationForest(
-                    n_estimators=100,
-                    contamination=0.10,
-                    random_state=42
-                )
+                if USE_SKLEARN_IFOREST:
+                    clf = IsolationForest(
+                        n_estimators=100,
+                        contamination=0.10,
+                        random_state=42
+                    )
+                else:
+                    clf = NumpyOutlierDetector(contamination=0.10)
                 clf.fit(feat_df)
                 self.iforest_models[lot_id] = (clf, list(feat_df.columns))
 
