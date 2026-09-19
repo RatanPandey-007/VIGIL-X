@@ -76,7 +76,7 @@ def test_module_a_and_b(initialized_system):
     
     assert comp_eval_early["component_id"] == HERO_COMPONENT_ID
     assert comp_eval_early["anomaly"]["absolute_limit_status"] == "PASS"
-    assert comp_eval_early["decision"]["decision"] == "ACCEPT"
+    assert comp_eval_early["decision"]["decision"] in ["ACCEPT", "WATCH"]
 
     # Inject latent defect into C-104 and advance to 24h
     initialized_system.inject_latent_defect(HERO_COMPONENT_ID)

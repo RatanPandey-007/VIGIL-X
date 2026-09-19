@@ -224,7 +224,7 @@ export const App: React.FC = () => {
         )}
 
         {/* Active Page View Container */}
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+        <main className="flex-1 p-3 sm:p-4 md:p-5 overflow-y-auto">
           {activeTab === 'overview' && (
             <OverviewDashboard
               metrics={metrics}
@@ -238,6 +238,7 @@ export const App: React.FC = () => {
               }}
               onOpenEvidenceModal={() => setIsEvidenceModalOpen(true)}
               onNavigateTab={setActiveTab}
+              onInjectDefect={handleInjectDefect}
             />
           )}
 

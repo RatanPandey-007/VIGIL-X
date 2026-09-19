@@ -29,84 +29,91 @@ export const SummaryKPICards: React.FC<SummaryKPICardsProps> = ({ metrics }) => 
 
   const cards = [
     {
-      label: 'Components Tested',
+      label: 'COMPONENTS TESTED',
       value: total,
       subtext: 'Active in 3 lots',
       icon: Cpu,
       iconBg: 'bg-slate-100 text-slate-700 border-slate-200',
       valueColor: 'text-slate-900',
+      accentColor: 'border-t-slate-400',
     },
     {
-      label: 'Normal',
+      label: 'NORMAL',
       value: normal,
       subtext: `${normalPct}% of lot cohort`,
       icon: CheckCircle2,
       iconBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       valueColor: 'text-emerald-700',
+      accentColor: 'border-t-emerald-500',
     },
     {
-      label: 'Watch',
+      label: 'WATCH',
       value: watch,
       subtext: `${watchPct}% lot divergence`,
       icon: Clock,
       iconBg: 'bg-amber-50 text-amber-800 border-amber-200',
       valueColor: 'text-amber-800',
+      accentColor: 'border-t-amber-500',
     },
     {
-      label: 'High Risk',
+      label: 'HIGH RISK',
       value: highRisk,
       subtext: `${highRiskPct}% screening breach`,
       icon: AlertTriangle,
       iconBg: 'bg-rose-50 text-rose-700 border-rose-200',
       valueColor: 'text-rose-700',
+      accentColor: 'border-t-rose-500',
     },
     {
-      label: 'Anomalies',
+      label: 'ANOMALIES',
       value: anomalies,
       subtext: 'Dynamic lot outliers',
       icon: Activity,
       iconBg: 'bg-slate-100 text-slate-700 border-slate-200',
       valueColor: 'text-slate-900',
+      accentColor: 'border-t-slate-400',
     },
     {
-      label: 'Early Flags',
+      label: 'EARLY FLAGS',
       value: earlyFlags,
       subtext: 'Triage at 24h gate',
       icon: Target,
       iconBg: 'bg-blue-50 text-blue-700 border-blue-200',
       valueColor: 'text-blue-700',
+      accentColor: 'border-t-blue-500',
     },
     {
-      label: 'Median Detection Time',
+      label: 'MEDIAN DETECTION',
       value: `${medianTime} h`,
       subtext: `Mean: ${meanTime} h`,
       icon: Clock,
       iconBg: 'bg-blue-50 text-blue-700 border-blue-200',
       valueColor: 'text-blue-700',
+      accentColor: 'border-t-blue-500',
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
       {cards.map((c, idx) => {
         const Icon = c.icon;
         return (
           <div
             key={idx}
-            className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-xs flex flex-col justify-between hover:border-slate-300 transition duration-150"
+            className={`bg-white border border-slate-200/90 ${c.accentColor} border-t-2 rounded-xl p-3 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition duration-150`}
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider font-mono truncate">
                 {c.label}
               </span>
-              <div className={`w-6 h-6 rounded-md flex items-center justify-center border shrink-0 ${c.iconBg}`}>
-                <Icon className="w-3.5 h-3.5" />
+              <div className={`w-5.5 h-5.5 rounded flex items-center justify-center border shrink-0 ${c.iconBg}`}>
+                <Icon className="w-3 h-3" />
               </div>
             </div>
-            <div className={`text-xl font-bold font-mono tracking-tight mt-2 ${c.valueColor}`}>
+            <div className={`text-lg font-bold font-mono tracking-tight mt-1.5 ${c.valueColor}`}>
               {c.value}
             </div>
-            <div className="text-[10px] font-medium text-slate-400 truncate mt-1">
+            <div className="text-[10px] font-medium text-slate-400 truncate mt-0.5 font-mono">
               {c.subtext}
             </div>
           </div>

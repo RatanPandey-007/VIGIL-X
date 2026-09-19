@@ -110,17 +110,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Bottom Mission / Rocket Visual Context */}
-      <div className="mt-4 pt-3 border-t border-slate-100">
-        <div className="w-full rounded-xl overflow-hidden border border-slate-200/80 bg-slate-50/60 p-2 shadow-xs">
-          <div className="w-full h-24 rounded-lg overflow-hidden bg-white border border-slate-100 mb-2 flex items-center justify-center">
+      <div className="mt-3 pt-3 border-t border-slate-100">
+        <div className="w-full rounded-xl overflow-hidden border border-slate-200/80 bg-slate-50/70 p-2 shadow-2xs">
+          <div className="w-full h-28 rounded-lg overflow-hidden bg-slate-900/5 border border-slate-200/60 mb-2 flex items-center justify-center p-0.5">
             <img
               src="/ref_rocket_full.png"
               alt="Aerospace Mission Vehicle"
-              className="w-full h-full object-cover block"
+              className="max-h-full max-w-full object-contain rounded block"
+              style={{ imageRendering: '-webkit-optimize-contrast' }}
             />
           </div>
           <div className="px-1">
-            <div className="text-[10px] font-bold font-mono text-slate-800 tracking-tight truncate">
+            <div className="text-[10px] font-bold font-mono text-slate-900 tracking-tight truncate">
               SIH26170 • ISRO
             </div>
             <div className="text-[9px] text-slate-500 font-medium leading-normal mt-0.5">
