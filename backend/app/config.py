@@ -8,17 +8,28 @@ DISCLAIMER: SIMULATION / RESEARCH PROTOTYPE
 Not certified for actual flight hardware qualification without rigorous empirical validation on qualified aerospace test rigs.
 """
 
+import os
 from pathlib import Path
 from pydantic import BaseModel
 from typing import Dict, Any
 
-# Root directories
+# Root directories (handle read-only serverless filesystems gracefully)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = BASE_DIR / "data"
-MODELS_DIR = BASE_DIR / "models"
+is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
 
-DATA_DIR.mkdir(parents=True, exist_ok=True)
-MODELS_DIR.mkdir(parents=True, exist_ok=True)
+if is_serverless:
+    tmp_dir = Path("/tmp/vigil-x")
+    DATA_DIR = tmp_dir / "data"
+    MODELS_DIR = tmp_dir / "models"
+else:
+    DATA_DIR = BASE_DIR / "data"
+    MODELS_DIR = BASE_DIR / "models"
+
+try:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
 
 # Standard Burn-in Checkpoints
 CHECKPOINTS = [0, 24, 96, 168]
