@@ -1,0 +1,12 @@
+{
+  "name": "vigil-x",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VIGIL-X: Dynamic Reliability Sentinel - AI-Driven Anomaly Detection & Early Drift Prediction (SIH26170 / ISRO)",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "vercel-build": "cd frontend && npm install && npm run build",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "python backend/app/main.py"
+  }
+}
