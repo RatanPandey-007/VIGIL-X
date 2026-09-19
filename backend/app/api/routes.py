@@ -119,14 +119,32 @@ def get_burnin_telemetry(component_id: str):
 
 @router.get("/alerts")
 def get_active_alerts():
-    """List all active anomalous alerts and screening flags."""
+    """List all active anomalous alerts and screening flags with root-cause attribution."""
     summary = live_sim_controller.get_system_summary()
+    active_scen = getattr(live_sim_controller, "active_demo_scenario", "isolated_component")
     alerts = []
+
     for c in summary.get("components", []):
         if c["decision"] in ["WATCH", "HOLD / REVIEW"] or c["anomaly_score"] >= 35.0:
+            cid = c["component_id"]
+            lid = c["lot_id"]
+
+            if active_scen == "test_system_drift":
+                attr = "TEST-SYSTEM DRIFT SUSPECTED"
+                msg = f"Shared test channel shift detected across lots • Verify measurement path before rejection"
+            elif active_scen == "lot_drift":
+                attr = "COMMON-CAUSE LOT DRIFT"
+                msg = f"Coordinated wafer-level drift detected across {lid} population"
+            elif active_scen == "combined_risk":
+                attr = "COMPONENT + LOT SYSTEMIC RISK"
+                msg = f"High individual anomaly combined with drifting wafer lot {lid}"
+            else:
+                attr = "ISOLATED COMPONENT ANOMALY"
+                msg = f"Isolated parametric deviation on {cid} (parent lot {lid} remains conforming)"
+
             alerts.append({
-                "component_id": c["component_id"],
-                "lot_id": c["lot_id"],
+                "component_id": cid,
+                "lot_id": lid,
                 "hour": summary["current_hour"],
                 "decision": c["decision"],
                 "risk_score": c["risk_score"],
@@ -134,14 +152,19 @@ def get_active_alerts():
                 "lot_deviation_score": c["lot_deviation_score"],
                 "abnormal_under_limit": c["abnormal_while_under_limit"],
                 "anomaly_types": c["anomaly_types"],
-                "time_to_risk": c["time_to_risk"]
+                "time_to_risk": c["time_to_risk"],
+                "attribution": attr,
+                "attribution_message": msg,
+                "test_channel_id": c.get("test_channel_id", "CHANNEL-A")
             })
+
     # Sort descending by risk score
     alerts.sort(key=lambda x: x["risk_score"], reverse=True)
     return {
         "current_hour": summary["current_hour"],
         "alert_count": len(alerts),
-        "alerts": alerts
+        "alerts": alerts,
+        "active_scenario": active_scen
     }
 
 @router.get("/components/{component_id}/evidence")
@@ -196,6 +219,9 @@ def step_simulation_hour(req: StepRequest):
     live_sim_controller.set_hour(req.hour)
     return {"status": "HOUR_UPDATED", "current_hour": live_sim_controller.current_hour}
 
+class ScenarioRequest(BaseModel):
+    scenario: str = "isolated_component"
+
 @router.post("/simulate/inject-defect")
 def inject_latent_defect(req: Optional[DefectRequest] = None):
     """Inject progressive latent defect into C-104 (or target component)."""
@@ -204,7 +230,24 @@ def inject_latent_defect(req: Optional[DefectRequest] = None):
     return res
 
 @router.post("/demo/hero-reset")
-def hero_demo_reset():
-    """1-Click Hero Demo Reset to deterministic presentation state."""
-    res = live_sim_controller.hero_demo_reset()
+def hero_demo_reset(req: Optional[ScenarioRequest] = None):
+    """1-Click Demo Reset to deterministic presentation state."""
+    scen = req.scenario if req else "isolated_component"
+    res = live_sim_controller.hero_demo_reset(scen)
     return res
+
+@router.post("/demo/scenario")
+def set_demo_scenario(req: ScenarioRequest):
+    """Switch active deterministic demo scenario (isolated_component, lot_drift, test_system_drift, combined_risk)."""
+    return live_sim_controller.set_demo_scenario(req.scenario)
+
+@router.get("/lots/{lot_id}/health-radar")
+def get_lot_health_radar_endpoint(lot_id: str):
+    """Detailed statistical population distribution and health radar for a lot."""
+    return live_sim_controller.get_lot_health_radar(lot_id)
+
+@router.get("/triangulation/benchmark")
+def get_triangulation_benchmark():
+    """Synthetic Root-Cause Attribution validation metrics for Model Validation."""
+    from app.core.root_cause_triangulation import root_cause_engine
+    return root_cause_engine.get_attribution_benchmark()

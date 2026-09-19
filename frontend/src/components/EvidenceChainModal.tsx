@@ -10,7 +10,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   GitCommit,
-  Sparkles
+  Sparkles,
+  Compass
 } from 'lucide-react';
 import { EvidenceChain, ScreeningDecision } from '../types';
 import { LiquidButton, LiquidCard } from './LiquidInteraction';
@@ -285,6 +286,51 @@ export const EvidenceChainModal: React.FC<EvidenceChainModalProps> = ({
                   </div>
                 );
               })}
+
+              {/* Stage 09: Root-Cause Triangulation Diagnosis */}
+              {evidenceChain.triangulation && (
+                <div className="relative flex items-start space-x-4 pl-2">
+                  <div className="relative z-10 w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-bold shrink-0 border shadow-sm bg-indigo-50 text-indigo-700 border-indigo-300">
+                    9
+                  </div>
+
+                  <div className="flex-1 bg-white border border-indigo-200 rounded-xl p-4 shadow-sm hover:border-indigo-300 transition duration-150">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold font-mono text-slate-900 flex items-center space-x-1.5">
+                        <Compass className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Stage 09: Root-Cause Triangulation Diagnosis</span>
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        {evidenceChain.triangulation.attribution}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-600 mb-2 font-medium">
+                      {evidenceChain.triangulation.evidence_text}
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono mt-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                      <div>
+                        <span className="text-slate-400">Comp Signal: </span>
+                        <strong className="text-slate-900">{evidenceChain.triangulation.component_signal.score.toFixed(0)}/100 ({evidenceChain.triangulation.component_signal.level})</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Lot Signal: </span>
+                        <strong className="text-slate-900">{evidenceChain.triangulation.lot_signal.score.toFixed(0)}/100 ({evidenceChain.triangulation.lot_signal.level})</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Hardware Harness: </span>
+                        <strong className="text-slate-900">{evidenceChain.triangulation.test_system_signal.score.toFixed(0)}/100 ({evidenceChain.triangulation.test_system_signal.shared_channel})</strong>
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-mono">
+                      <span className="text-indigo-900 font-bold">Action: {evidenceChain.triangulation.recommended_action}</span>
+                      <span className="text-slate-400">Confidence: {evidenceChain.triangulation.confidence}%</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

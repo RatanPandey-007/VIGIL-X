@@ -1,5 +1,6 @@
-import React from 'react';
-import { SystemMetrics, ComponentEvaluation } from '../types';
+import React, { useState, useEffect } from 'react';
+import { SystemMetrics } from '../types';
+import { api } from '../services/api';
 import {
   AlertTriangle,
   ShieldAlert,
@@ -7,7 +8,8 @@ import {
   ArrowRight,
   Filter,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Compass
 } from 'lucide-react';
 
 interface RiskAlertsViewProps {
@@ -27,12 +29,25 @@ export const RiskAlertsView: React.FC<RiskAlertsViewProps> = ({
   onOpenEvidenceModal,
   onNavigateTab
 }) => {
+  const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
+
+  // Fetch enriched alerts with root-cause attribution from API
+  useEffect(() => {
+    api.getAlerts()
+      .then((res) => {
+        if (res?.alerts) setActiveAlerts(res.alerts);
+      })
+      .catch((err) => console.error('Failed to fetch alerts:', err));
+  }, [currentHour]);
+
   const components = metrics?.components ?? [];
 
-  // Filter real components flagged by the dynamic anomaly engine
-  const flaggedAlerts = components.filter(
-    (c) => c.decision === 'HOLD / REVIEW' || c.decision === 'WATCH' || c.absolute_status === 'BREACHED'
-  );
+  // Fallback if API hasn't resolved yet
+  const displayAlerts = activeAlerts.length > 0
+    ? activeAlerts
+    : components.filter(
+        (c) => c.decision === 'HOLD / REVIEW' || c.decision === 'WATCH' || c.absolute_status === 'BREACHED'
+      );
 
   const criticalCount = components.filter(
     (c) => c.decision === 'HOLD / REVIEW' || c.absolute_status === 'BREACHED'
@@ -83,7 +98,7 @@ export const RiskAlertsView: React.FC<RiskAlertsViewProps> = ({
           <div className="flex items-center space-x-2">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
             <span className="text-xs font-bold font-mono text-slate-700 uppercase tracking-wider">
-              Active Triage Queue ({flaggedAlerts.length} Flagged Devices)
+              Active Triage Queue ({displayAlerts.length} Flagged Devices)
             </span>
           </div>
           <span className="text-xs font-mono text-slate-400">
@@ -98,21 +113,23 @@ export const RiskAlertsView: React.FC<RiskAlertsViewProps> = ({
                 <th className="py-3 px-4">Severity</th>
                 <th className="py-3 px-4">Component ID</th>
                 <th className="py-3 px-4">Lot ID</th>
+                <th className="py-3 px-4">Root-Cause Attribution</th>
                 <th className="py-3 px-4">Burn-in Hour</th>
-                <th className="py-3 px-4">Screening Reason & Anomaly Types</th>
+                <th className="py-3 px-4">Screening Reason & Diagnosis Note</th>
                 <th className="py-3 px-4">Triage Status</th>
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {flaggedAlerts.length > 0 ? (
-                flaggedAlerts.map((a) => {
+              {displayAlerts.length > 0 ? (
+                displayAlerts.map((a) => {
                   const isCritical = a.decision === 'HOLD / REVIEW' || a.absolute_status === 'BREACHED';
                   const isSelected = a.component_id === selectedComponentId;
                   const reasonText =
                     a.anomaly_types && a.anomaly_types.length > 0
                       ? a.anomaly_types.join(', ')
                       : 'Lot-Relative Parameter Divergence';
+                  const attribution = a.attribution || 'ISOLATED COMPONENT ANOMALY';
 
                   return (
                     <tr
@@ -152,18 +169,30 @@ export const RiskAlertsView: React.FC<RiskAlertsViewProps> = ({
                         {a.lot_id}
                       </td>
 
+                      {/* Root-Cause Attribution */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                          attribution.includes('LOT') ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          attribution.includes('TEST') ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                          attribution.includes('SYSTEMIC') ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                          'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
+                          {attribution}
+                        </span>
+                      </td>
+
                       {/* Burn-in Hour */}
                       <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
                         {currentHour.toFixed(0)}h
                       </td>
 
-                      {/* Reason */}
+                      {/* Reason & Action Note */}
                       <td className="py-3.5 px-4 text-slate-700">
                         <div className="font-medium text-slate-800 truncate max-w-md">
                           {reasonText}
                         </div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">
-                          Abs Limit: {a.absolute_status} • Lot Dev: {a.lot_deviation_score ?? 'N/A'}/100
+                        <div className="text-[10px] text-slate-500 mt-0.5 font-sans">
+                          {a.action_note || `Abs Limit: ${a.absolute_status} • Lot Dev: ${a.lot_deviation_score ?? 'N/A'}/100`}
                         </div>
                       </td>
 

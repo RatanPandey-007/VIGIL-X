@@ -182,6 +182,110 @@ export interface EvidenceChain {
     disclaimer: string;
   };
   executive_summary: string;
+  triangulation?: RootCauseTriangulation;
+}
+
+export interface ComponentSignal {
+  score: number;
+  level: 'LOW' | 'ELEVATED' | 'HIGH' | 'CRITICAL';
+  dominant_parameter: string;
+  mad_deviation: number;
+  anomaly_score: number;
+  lot_deviation_score: number;
+}
+
+export interface LotSignal {
+  score: number;
+  level: 'NORMAL' | 'WATCH' | 'DRIFTING' | 'HIGH DRIFT';
+  drifting_fraction: string;
+  drifting_percentage: number;
+  drifting_count?: number;
+  total_monitored?: number;
+  lot_median_shift: number;
+  reference_deviation_mad: number;
+  dominant_parameter: string;
+  common_cause_state: 'NORMAL' | 'SUSPECTED' | 'HIGH';
+}
+
+export interface TestSystemSignal {
+  score: number;
+  level: 'NORMAL' | 'SUSPECTED';
+  shared_channel: string;
+  cross_lot_correlation: number;
+  channel_drift_detected: boolean;
+  shared_components_count?: number;
+  distinct_lots_on_channel?: number;
+}
+
+export interface FourStateMatrix {
+  active_cell: 'NORMAL' | 'LOT-WIDE DRIFT' | 'INDIVIDUAL DEFECT' | 'SYSTEMIC + INDIVIDUAL RISK';
+  counts: {
+    normal: number;
+    lot_drift: number;
+    individual_defect: number;
+    systemic_risk: number;
+  };
+  is_comp_abnormal: boolean;
+  is_lot_drifting: boolean;
+}
+
+export interface PopulationDistributionPoint {
+  offset: string;
+  current_density: number;
+  reference_density: number;
+}
+
+export interface LotHealthRadarData {
+  lot_id: string;
+  lot_health_score: number;
+  components_monitored: number;
+  population_showing_drift: string;
+  drifting_percentage: number;
+  dominant_parameter: string;
+  reference_deviation_mad: number;
+  common_cause_drift: string;
+  component_risk_score: number;
+  population_distribution: PopulationDistributionPoint[];
+}
+
+export interface RootCauseTriangulation {
+  component_id: string;
+  lot_id: string;
+  burn_in_hour: number;
+  component_signal: ComponentSignal;
+  lot_signal: LotSignal;
+  test_system_signal: TestSystemSignal;
+  attribution: 'ISOLATED COMPONENT ANOMALY' | 'COMMON-CAUSE LOT DRIFT' | 'TEST-SYSTEM DRIFT SUSPECTED' | 'COMPONENT + LOT SYSTEMIC RISK' | 'INSUFFICIENT EVIDENCE';
+  attribution_label: string;
+  confidence: number;
+  evidence_text: string;
+  recommended_action: string;
+  four_state_matrix: FourStateMatrix;
+  lot_health_radar: LotHealthRadarData;
+  disclaimer: string;
+}
+
+export interface AttributionConfusionRow {
+  scenario: string;
+  isolated: number;
+  lot_drift: number;
+  test_system: number;
+  combined: number;
+}
+
+export interface AttributionBenchmark {
+  benchmark_title: string;
+  sample_trials: number;
+  attribution_accuracy: number;
+  scenario_accuracies: {
+    isolated_component: number;
+    lot_drift: number;
+    test_system_drift: number;
+    combined_risk: number;
+  };
+  confusion_matrix: AttributionConfusionRow[];
+  low_confidence_rate: number;
+  disclaimer: string;
 }
 
 export interface ComponentEvaluation {
@@ -203,6 +307,8 @@ export interface ComponentEvaluation {
   decision: DecisionEvaluation;
   evidence_chain: EvidenceChain;
   records_history: TelemetryRecord[];
+  triangulation?: RootCauseTriangulation;
+  lot_health_radar?: LotHealthRadarData;
 }
 
 export interface SystemMetrics {

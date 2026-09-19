@@ -9,7 +9,7 @@ import { SummaryKPICards } from '../components/SummaryKPICards';
 import { LiveBurnInMonitorCard } from '../components/LiveBurnInMonitorCard';
 import { CurrentComponentPanel } from '../components/CurrentComponentPanel';
 import { BottomIntelligenceRow } from '../components/BottomIntelligenceRow';
-import { Clock, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Clock, AlertTriangle, ShieldAlert, Compass } from 'lucide-react';
 
 interface OverviewDashboardProps {
   metrics: SystemMetrics | null;
@@ -78,6 +78,56 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Root-Cause Triangulation Quick Sentinel */}
+      {selectedComponent?.triangulation && (
+        <div className="bg-white border border-slate-200/90 rounded-xl p-3 shadow-2xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center shrink-0">
+              <Compass className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono font-bold text-slate-900 uppercase tracking-tight text-[11px]">
+                  ROOT-CAUSE TRIANGULATION
+                </span>
+                <span className="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-blue-50 text-blue-700 border border-blue-200">
+                  {selectedComponent.triangulation.attribution}
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  Confidence: {selectedComponent.triangulation.confidence}%
+                </span>
+              </div>
+              <p className="text-slate-600 text-[11px] mt-0.5 line-clamp-1">
+                {selectedComponent.triangulation.evidence_text}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 self-stretch md:self-auto justify-between md:justify-end shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+            {/* 3 Signal Meters */}
+            <div className="flex items-center space-x-1.5 font-mono text-[10px]">
+              <span className="px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700" title="Component Signal Score">
+                COMP: <span className="font-bold text-slate-900">{selectedComponent.triangulation.component_signal.score.toFixed(0)}</span>
+              </span>
+              <span className="px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700" title="Lot-Wide Signal Score">
+                LOT: <span className="font-bold text-slate-900">{selectedComponent.triangulation.lot_signal.score.toFixed(0)}</span>
+              </span>
+              <span className="px-2 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700" title="Test-System Hardware Signal Score">
+                HARNESS: <span className="font-bold text-slate-900">{selectedComponent.triangulation.test_system_signal.score.toFixed(0)}</span>
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenEvidenceModal}
+              className="px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono font-bold text-[11px] transition"
+            >
+              AUDIT TRAIL
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2. 7 Compact KPI Cards (Section 6) */}
       <SummaryKPICards metrics={metrics} />

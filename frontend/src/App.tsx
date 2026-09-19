@@ -145,9 +145,12 @@ export const App: React.FC = () => {
     }
   };
 
+  const [activeScenario, setActiveScenario] = useState<string>('isolated_component');
+
   const handleHeroDemo = async () => {
     try {
-      await api.heroDemoReset();
+      await api.heroDemoReset('isolated_component');
+      setActiveScenario('isolated_component');
       setSelectedComponentId('C-104');
       setSelectedLotId('LOT-A17');
       setCurrentHour(0.0);
@@ -155,6 +158,23 @@ export const App: React.FC = () => {
       await refreshComponent('C-104');
       await refreshAllData();
       setActiveTab('overview');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSelectScenario = async (scenId: string) => {
+    try {
+      await api.setDemoScenario(scenId);
+      setActiveScenario(scenId);
+      setSelectedComponentId('C-104');
+      setSelectedLotId('LOT-A17');
+      // Step to 24h so deviation, multi-signal scores & attribution are immediately visible!
+      await api.stepHour(24.0);
+      setCurrentHour(24.0);
+      setIsRunning(false);
+      await refreshComponent('C-104');
+      await refreshAllData();
     } catch (e) {
       console.error(e);
     }
@@ -199,11 +219,13 @@ export const App: React.FC = () => {
           selectedComponentId={selectedComponentId}
           selectedLotId={selectedLotId}
           pageTitle={pageTitleMap[activeTab] || 'Overview'}
+          activeScenario={activeScenario}
           onStart={handleStart}
           onPause={handlePause}
           onReset={handleReset}
           onSpeedChange={handleSpeedChange}
           onHeroDemo={handleHeroDemo}
+          onSelectScenario={handleSelectScenario}
         />
 
         {/* API Error Banner */}

@@ -14,7 +14,8 @@ import {
   Clock,
   Layers,
   Sparkles,
-  ChevronDown
+  ChevronDown,
+  Compass
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -244,6 +245,39 @@ export const PredictionsView: React.FC<PredictionsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Root-Cause Triangulation Context Banner */}
+      {component?.triangulation && (
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200/70 text-indigo-700 flex items-center justify-center shrink-0">
+              <Compass className="w-4.5 h-4.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono font-bold text-slate-900 text-xs">
+                  ROOT-CAUSE FORECAST CONTEXT
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                  {component.triangulation.attribution}
+                </span>
+                <span className="text-[10px] font-mono text-slate-500">
+                  Confidence: {component.triangulation.confidence}%
+                </span>
+              </div>
+              <p className="text-slate-600 text-[11px] mt-0.5 line-clamp-1">
+                {component.triangulation.evidence_text}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 shrink-0 self-stretch md:self-auto justify-end">
+            <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 font-mono text-[10px] text-slate-700">
+              Action: <strong className="text-slate-900">{component.triangulation.recommended_action}</strong>
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Parameter Switcher */}
       <div className="flex items-center space-x-2 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 max-w-fit">

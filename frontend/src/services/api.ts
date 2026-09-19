@@ -9,7 +9,9 @@ import {
   LotFingerprint,
   ModelPerformanceData,
   EvidenceChain,
-  ForecastEvaluation
+  ForecastEvaluation,
+  LotHealthRadarData,
+  AttributionBenchmark
 } from '../types';
 
 const API_BASE = '/api';
@@ -113,8 +115,34 @@ export const api = {
     return res.json();
   },
 
-  async heroDemoReset() {
-    const res = await fetch(`${API_BASE}/demo/hero-reset`, { method: 'POST' });
+  async heroDemoReset(scenario = 'isolated_component') {
+    const res = await fetch(`${API_BASE}/demo/hero-reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario })
+    });
+    return res.json();
+  },
+
+  async setDemoScenario(scenario: string) {
+    const res = await fetch(`${API_BASE}/demo/scenario`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario })
+    });
+    if (!res.ok) throw new Error('Failed to set demo scenario');
+    return res.json();
+  },
+
+  async getLotHealthRadar(lotId: string): Promise<LotHealthRadarData> {
+    const res = await fetch(`${API_BASE}/lots/${lotId}/health-radar`);
+    if (!res.ok) throw new Error(`Failed to fetch health radar for lot ${lotId}`);
+    return res.json();
+  },
+
+  async getTriangulationBenchmark(): Promise<AttributionBenchmark> {
+    const res = await fetch(`${API_BASE}/triangulation/benchmark`);
+    if (!res.ok) throw new Error('Failed to fetch triangulation benchmark');
     return res.json();
   }
 };

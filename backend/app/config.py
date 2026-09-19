@@ -112,6 +112,59 @@ LOT_CONFIGS = [
     }
 ]
 
+# Simulated Reference Lots for baseline population comparison (Clearly labeled simulated research cohorts)
+REFERENCE_LOT_CONFIGS = [
+    {
+        "lot_id": "REFERENCE-LOT-01",
+        "wafer_fab": "SemiFab-7-Ref",
+        "part_type": "RAD-HARD-FPGA-DSP",
+        "sample_size": 25,
+        "baseline_temp": 69.8,
+        "baseline_leakage": 27.8,
+        "baseline_voltage": 3.30,
+        "baseline_current": 81.5,
+        "is_reference": True,
+        "description": "SIMULATED REFERENCE LOT 01 • Certified Nominal Baseline"
+    },
+    {
+        "lot_id": "REFERENCE-LOT-02",
+        "wafer_fab": "SemiFab-7-Ref",
+        "part_type": "RAD-HARD-FPGA-DSP",
+        "sample_size": 25,
+        "baseline_temp": 70.2,
+        "baseline_leakage": 28.2,
+        "baseline_voltage": 3.30,
+        "baseline_current": 82.2,
+        "is_reference": True,
+        "description": "SIMULATED REFERENCE LOT 02 • Historical Control Cohort"
+    },
+    {
+        "lot_id": "REFERENCE-LOT-03",
+        "wafer_fab": "SemiFab-9-Ref",
+        "part_type": "PRECISION-ADC-16B",
+        "sample_size": 20,
+        "baseline_temp": 65.1,
+        "baseline_leakage": 19.1,
+        "baseline_voltage": 3.30,
+        "baseline_current": 63.8,
+        "is_reference": True,
+        "description": "SIMULATED REFERENCE LOT 03 • Mixed-Signal Calibration Cohort"
+    }
+]
+
+# Simulated Test Environment Metadata
+TEST_CHANNELS = ["CHANNEL-A", "CHANNEL-B", "CHANNEL-C", "CHANNEL-D"]
+TEST_CHAMBERS = ["CHAMBER-01", "CHAMBER-02"]
+TEST_SYSTEMS = ["SYS-01", "SYS-02"]
+
+# Deterministic Root-Cause Triangulation Demo Scenarios
+DEMO_SCENARIOS = {
+    "isolated_component": "Isolated Component Anomaly",
+    "lot_drift": "Common-Cause Lot Drift",
+    "test_system_drift": "Test-System Drift Suspected",
+    "combined_risk": "Component + Lot Systemic Risk"
+}
+
 HERO_COMPONENT_ID = "C-104"
 HERO_LOT_ID = "LOT-A17"
 RANDOM_SEED = 42

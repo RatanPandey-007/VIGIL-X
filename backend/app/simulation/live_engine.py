@@ -17,7 +17,8 @@ from app.config import (
     HERO_COMPONENT_ID,
     HERO_LOT_ID,
     TOTAL_BURNIN_HOURS,
-    EARLY_DECISION_HOUR
+    EARLY_DECISION_HOUR,
+    DEMO_SCENARIOS
 )
 from app.simulation.generator import burnin_generator
 from app.core.data_quality import data_quality_gate
@@ -28,6 +29,7 @@ from app.core.time_to_risk import time_to_risk_engine
 from app.core.decision_engine import screening_decision_engine
 from app.core.evidence_chain import evidence_chain_engine
 from app.core.model_validation import model_validation_engine
+from app.core.root_cause_triangulation import root_cause_engine
 
 class LiveSimulationController:
     """
@@ -38,8 +40,9 @@ class LiveSimulationController:
         self.lock = threading.Lock()
         self.current_hour: float = 0.0
         self.is_running: bool = False
-        self.speed_multiplier: int = 10  # Default 10x speed
+        self.speed_multiplier: int = 10  # 10x real-time simulation default
         self.hero_defect_injected: bool = False
+        self.active_demo_scenario: str = "isolated_component"
         self.last_wall_time: float = time.time()
         
         # Precomputed cached trajectories for instant query performance
@@ -130,23 +133,64 @@ class LiveSimulationController:
             self._update_records_cache()
             return {"status": "DEFECT_INJECTED", "component_id": component_id, "at_hour": self.current_hour}
 
-    def hero_demo_reset(self):
+    def hero_demo_reset(self, scenario: Optional[str] = None):
         """
-        Puts the system into the clean initial state for the deterministic Hero Demo:
-        C-104 in LOT-A17, hour 0.0, ACCEPT state, absolute limit PASS, defect primed.
+        Puts the system into the clean initial state for the deterministic Demo Mode:
+        C-104 in LOT-A17, hour 0.0, absolute limit PASS, defect primed.
+        Supports 4 scenarios: isolated_component, lot_drift, test_system_drift, combined_risk.
         """
         with self.lock:
             self.current_hour = 0.0
             self.is_running = False
-            self.hero_defect_injected = False
+            self.hero_defect_injected = True
+            scen = scenario or self.active_demo_scenario or "isolated_component"
+            if scen not in DEMO_SCENARIOS:
+                scen = "isolated_component"
+            self.active_demo_scenario = scen
             self.data_store_defective = burnin_generator.generate_all_lots_data(
                 inject_hero_defect=True,
                 hours=168,
-                target_defect_comp_id=HERO_COMPONENT_ID
+                target_defect_comp_id=HERO_COMPONENT_ID,
+                demo_scenario=scen
             )
             self._update_records_cache()
             self.last_wall_time = time.time()
-            return {"status": "HERO_DEMO_READY", "component_id": HERO_COMPONENT_ID, "lot_id": HERO_LOT_ID, "hour": 0.0}
+            return {
+                "status": "HERO_DEMO_READY",
+                "component_id": HERO_COMPONENT_ID,
+                "lot_id": HERO_LOT_ID,
+                "hour": 0.0,
+                "scenario": scen,
+                "scenario_title": DEMO_SCENARIOS.get(scen, "Isolated Component Anomaly")
+            }
+
+    def set_demo_scenario(self, scenario: str):
+        """
+        Activates one of the 4 deterministic Root-Cause Triangulation demo scenarios:
+        1. isolated_component: C-104 anomalous, lot nominal, test system nominal
+        2. lot_drift: LOT-A17 72% components drifting, reference lots nominal, test system nominal
+        3. test_system_drift: CHANNEL-A drifting across unrelated lots, other channels nominal
+        4. combined_risk: C-104 anomalous AND LOT-A17 drifting
+        """
+        with self.lock:
+            if scenario not in DEMO_SCENARIOS:
+                scenario = "isolated_component"
+            self.active_demo_scenario = scenario
+            self.hero_defect_injected = True
+            self.data_store_defective = burnin_generator.generate_all_lots_data(
+                inject_hero_defect=True,
+                hours=168,
+                target_defect_comp_id=HERO_COMPONENT_ID,
+                demo_scenario=scenario
+            )
+            self._update_records_cache()
+            return {
+                "status": "SCENARIO_SET",
+                "scenario": scenario,
+                "scenario_title": DEMO_SCENARIOS[scenario],
+                "hour": self.current_hour,
+                "component_id": HERO_COMPONENT_ID
+            }
 
     def set_hour(self, hour: float):
         with self.lock:
@@ -226,6 +270,41 @@ class LiveSimulationController:
             decision_eval=decision_eval
         )
 
+        # 8. Root-Cause Triangulation & Lot Health Intelligence
+        active_data = self.data_store_defective if self.hero_defect_injected else self.data_store_normal
+        comp_meta = active_data.get("components", {}).get(component_id, {})
+        test_chan = comp_meta.get("test_channel_id", "CHANNEL-A")
+
+        # Collect records up to current hour for all components in active lot
+        lot_comp_records = [
+            r for cid, recs in self.current_records_by_comp.items()
+            if active_data.get("components", {}).get(cid, {}).get("lot_id") == lot_id
+            for r in recs if r["burn_in_hour"] <= cur_h
+        ]
+
+        # Collect records up to current hour for components sharing this channel across lots
+        channel_comp_records = [
+            r for cid, recs in self.current_records_by_comp.items()
+            if active_data.get("components", {}).get(cid, {}).get("test_channel_id") == test_chan
+            for r in recs if r["burn_in_hour"] <= cur_h
+        ]
+
+        ref_fp = lot_fingerprint_engine.get_lot_fingerprint("REFERENCE-LOT-01")
+
+        triangulation_eval = root_cause_engine.evaluate_triangulation(
+            component_id=component_id,
+            lot_id=lot_id,
+            current_hour=cur_h,
+            latest_record=latest_record,
+            anomaly_eval=anomaly_eval,
+            lot_fingerprint=lot_fp,
+            all_lot_components_records=lot_comp_records,
+            all_channel_components_records=channel_comp_records,
+            reference_lot_fingerprint=ref_fp
+        )
+
+        evidence_chain["triangulation"] = triangulation_eval
+
         return {
             "component_id": component_id,
             "lot_id": lot_id,
@@ -238,6 +317,16 @@ class LiveSimulationController:
             "time_to_risk": ttr_eval,
             "decision": decision_eval,
             "evidence_chain": evidence_chain,
+            "triangulation": triangulation_eval,
+            "root_cause": triangulation_eval,
+            "lot_health_radar": triangulation_eval["lot_health_radar"],
+            "component_signal": triangulation_eval["component_signal"],
+            "lot_signal": triangulation_eval["lot_signal"],
+            "test_system_signal": triangulation_eval["test_system_signal"],
+            "four_state_matrix": triangulation_eval["four_state_matrix"],
+            "test_channel_id": test_chan,
+            "chamber_id": comp_meta.get("chamber_id", "CHAMBER-01"),
+            "test_system_id": comp_meta.get("test_system_id", "SYS-01"),
             "records_history": records_up_to_h
         }
 
@@ -341,8 +430,21 @@ class LiveSimulationController:
             "p95_detection_latency_hours": p95_latency,
             "avg_detection_latency_hours": f"{median_latency} h (vs 168h conventional)",
             "screening_efficiency_acceleration": screening_accel,
+            "active_scenario": getattr(self, "active_demo_scenario", "isolated_component"),
+            "scenario_title": DEMO_SCENARIOS.get(getattr(self, "active_demo_scenario", "isolated_component"), "Isolated Component Anomaly"),
             "components": components_summary_list
         }
+
+    def get_lot_health_radar(self, lot_id: str) -> Dict[str, Any]:
+        """
+        Returns dedicated population health radar for the requested production lot.
+        """
+        self.update_clock()
+        cur_h = self.current_hour
+        active_data = self.data_store_defective if self.hero_defect_injected else self.data_store_normal
+        first_cid = next((cid for cid, m in active_data.get("components", {}).items() if m.get("lot_id") == lot_id), HERO_COMPONENT_ID)
+        comp_eval = self.get_component_evaluation(first_cid)
+        return comp_eval.get("lot_health_radar", {})
 
 # Global singleton
 live_sim_controller = LiveSimulationController()

@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LotFingerprint,
-  SystemMetrics
+  SystemMetrics,
+  LotHealthRadarData
 } from '../types';
+import { api } from '../services/api';
+import { LotHealthRadarCard } from '../components/LotHealthRadarCard';
 import {
   Layers,
   Search,
@@ -33,8 +36,17 @@ export const LotIntelligenceView: React.FC<LotIntelligenceViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDecision, setFilterDecision] = useState<string>('ALL');
+  const [radarData, setRadarData] = useState<LotHealthRadarData | null>(null);
 
   const activeLot = lots.find((l) => l.lot_id === selectedLotId) || lots[0];
+
+  useEffect(() => {
+    if (activeLot?.lot_id) {
+      api.getLotHealthRadar(activeLot.lot_id)
+        .then(setRadarData)
+        .catch((err) => console.error('Failed to fetch radar data:', err));
+    }
+  }, [activeLot?.lot_id]);
 
   // Components belonging to selected lot
   const lotComponents = (metrics?.components ?? []).filter((c) => c.lot_id === activeLot?.lot_id);
@@ -168,6 +180,24 @@ export const LotIntelligenceView: React.FC<LotIntelligenceViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Lot Health Radar & Population Dispersion Analysis */}
+      <LotHealthRadarCard
+        radarData={radarData}
+        lotId={activeLot?.lot_id}
+        attribution={radarData?.common_cause_drift === 'HIGH' ? 'COMMON-CAUSE LOT DRIFT' : undefined}
+        attributionLabel={radarData?.common_cause_drift === 'HIGH' ? 'COMMON-CAUSE LOT DRIFT DETECTED' : undefined}
+        evidenceText={
+          radarData?.common_cause_drift === 'HIGH'
+            ? `Wafer lot ${activeLot?.lot_id} shows coordinated population drift across ${radarData.population_showing_drift} units (+${radarData.reference_deviation_mad} MAD shift vs reference envelope).`
+            : undefined
+        }
+        recommendedAction={
+          radarData?.common_cause_drift === 'HIGH'
+            ? `LOT SCREENING HOLD • ISSUE WAFER INVESTIGATION FOR ${activeLot?.lot_id}`
+            : undefined
+        }
+      />
 
       {/* Clean Table: Section 17 Specification */}
       <div className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">

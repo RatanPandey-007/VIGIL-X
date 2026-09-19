@@ -15,7 +15,9 @@ import {
   Compass,
   Clock,
   Sparkles,
-  BarChart3
+  BarChart3,
+  Wrench,
+  Sliders
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -313,6 +315,182 @@ export const ComponentForensicsView: React.FC<ComponentForensicsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Dedicated Root-Cause Triangulation Panel */}
+      {component.triangulation && (
+        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-5">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200/70 flex items-center justify-center text-indigo-700 shrink-0">
+                <Compass className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-bold font-mono tracking-tight text-slate-900">
+                    ROOT-CAUSE TRIANGULATION DIAGNOSIS
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                    {component.triangulation.attribution}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-500">
+                    {component.triangulation.confidence}% Confidence
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                  3-Layer analytical convergence: Component deviation, Lot-wide population shift, and Test-system hardware correlation
+                </p>
+              </div>
+            </div>
+
+            <span className="text-[10px] font-mono text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200 self-start sm:self-center">
+              AI-ASSISTED SCREENING DIAGNOSIS
+            </span>
+          </div>
+
+          {/* 3 Analytical Signal Meters */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 1. Component Signal */}
+            <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5 text-blue-700 font-bold text-xs font-mono">
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>1. Component Signal</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold ${
+                  component.triangulation.component_signal.level === 'CRITICAL' ? 'bg-rose-100 text-rose-800' :
+                  component.triangulation.component_signal.level === 'HIGH' ? 'bg-amber-100 text-amber-800' :
+                  component.triangulation.component_signal.level === 'ELEVATED' ? 'bg-blue-100 text-blue-800' :
+                  'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {component.triangulation.component_signal.level}
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-mono font-bold text-slate-900">
+                  {component.triangulation.component_signal.score.toFixed(0)}
+                  <span className="text-xs text-slate-400 font-normal"> /100</span>
+                </span>
+                <span className="text-[11px] font-mono text-slate-500">
+                  +{component.triangulation.component_signal.mad_deviation} MAD
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                  style={{ width: `${component.triangulation.component_signal.score}%` }}
+                />
+              </div>
+
+              <div className="text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-200/60 flex justify-between">
+                <span>Dominant: <strong className="text-slate-700">{component.triangulation.component_signal.dominant_parameter}</strong></span>
+                <span>Lot Dev: {component.triangulation.component_signal.lot_deviation_score.toFixed(0)}</span>
+              </div>
+            </div>
+
+            {/* 2. Lot Signal */}
+            <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5 text-purple-700 font-bold text-xs font-mono">
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>2. Lot-Wide Signal</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold ${
+                  component.triangulation.lot_signal.level === 'HIGH DRIFT' ? 'bg-rose-100 text-rose-800' :
+                  component.triangulation.lot_signal.level === 'DRIFTING' ? 'bg-amber-100 text-amber-800' :
+                  component.triangulation.lot_signal.level === 'WATCH' ? 'bg-blue-100 text-blue-800' :
+                  'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {component.triangulation.lot_signal.level}
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-mono font-bold text-slate-900">
+                  {component.triangulation.lot_signal.score.toFixed(0)}
+                  <span className="text-xs text-slate-400 font-normal"> /100</span>
+                </span>
+                <span className="text-[11px] font-mono text-slate-500">
+                  +{component.triangulation.lot_signal.reference_deviation_mad} MAD vs Ref
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-purple-600 rounded-full transition-all duration-300"
+                  style={{ width: `${component.triangulation.lot_signal.score}%` }}
+                />
+              </div>
+
+              <div className="text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-200/60 flex justify-between">
+                <span>Drifting: <strong className="text-slate-700">{component.triangulation.lot_signal.drifting_fraction}</strong></span>
+                <span>Pct: {component.triangulation.lot_signal.drifting_percentage}%</span>
+              </div>
+            </div>
+
+            {/* 3. Test-System Signal */}
+            <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5 text-indigo-700 font-bold text-xs font-mono">
+                  <Wrench className="w-3.5 h-3.5" />
+                  <span>3. Test-System Signal</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold ${
+                  component.triangulation.test_system_signal.level === 'SUSPECTED' ? 'bg-rose-100 text-rose-800' :
+                  'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {component.triangulation.test_system_signal.level}
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-mono font-bold text-slate-900">
+                  {component.triangulation.test_system_signal.score.toFixed(0)}
+                  <span className="text-xs text-slate-400 font-normal"> /100</span>
+                </span>
+                <span className="text-[11px] font-mono text-slate-500">
+                  Corr: {component.triangulation.test_system_signal.cross_lot_correlation}
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                  style={{ width: `${component.triangulation.test_system_signal.score}%` }}
+                />
+              </div>
+
+              <div className="text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-200/60 flex justify-between">
+                <span>Harness: <strong className="text-slate-700">{component.triangulation.test_system_signal.shared_channel}</strong></span>
+                <span>Drift: {component.triangulation.test_system_signal.channel_drift_detected ? 'YES' : 'NO'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Narrative & Action Banner */}
+          <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs">
+            <div className="space-y-1">
+              <span className="font-mono font-bold text-slate-900 uppercase text-[11px]">
+                TRIANGULATION EVIDENCE NARRATIVE:
+              </span>
+              <p className="text-slate-700 leading-relaxed text-xs">
+                {component.triangulation.evidence_text}
+              </p>
+            </div>
+
+            <div className="shrink-0 self-stretch md:self-auto">
+              <div className="px-3.5 py-2 rounded-lg bg-blue-600 text-white font-mono font-bold text-xs shadow-2xs flex items-center space-x-2">
+                <span>{component.triangulation.recommended_action}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Multi-Channel History Charts */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-4">

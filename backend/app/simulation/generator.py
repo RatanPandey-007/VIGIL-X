@@ -1,23 +1,36 @@
 """
-Realistic Burn-in Telemetry Generator
+Realistic Burn-in Telemetry Generator with Root-Cause Attribution Signals
 Smart India Hackathon 2026 | Problem Statement SIH26170
 Organization: Indian Space Research Organisation (ISRO)
 
 DISCLAIMER: SIMULATION / RESEARCH PROTOTYPE
 Generates synthetic burn-in parametric screening data across production lots with physical correlations,
-component-to-component variability, and subtle progressive latent defects.
+component-to-component variability, subtle progressive latent defects, simulated reference lots,
+and test-system hardware channel/chamber metadata.
 """
 
 from typing import List, Dict, Any, Optional
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from app.config import LOT_CONFIGS, RANDOM_SEED, HERO_COMPONENT_ID, HERO_LOT_ID, CHECKPOINTS, TOTAL_BURNIN_HOURS
+from app.config import (
+    LOT_CONFIGS,
+    REFERENCE_LOT_CONFIGS,
+    TEST_CHANNELS,
+    TEST_CHAMBERS,
+    TEST_SYSTEMS,
+    RANDOM_SEED,
+    HERO_COMPONENT_ID,
+    HERO_LOT_ID,
+    CHECKPOINTS,
+    TOTAL_BURNIN_HOURS
+)
 
 class BurnInDataGenerator:
     """
     Simulates multi-lot burn-in parametric telemetry.
     Supports continuous hourly timelines (0h to 168h) and standard PS checkpoints (0h, 24h, 96h, 168h).
+    Extended to support Root-Cause Triangulation: Component, Lot-Wide, and Test-System drift.
     """
 
     def __init__(self, seed: int = RANDOM_SEED):
@@ -28,40 +41,76 @@ class BurnInDataGenerator:
         self,
         inject_hero_defect: bool = False,
         hours: int = 168,
-        target_defect_comp_id: Optional[str] = None
+        target_defect_comp_id: Optional[str] = None,
+        demo_scenario: str = "isolated_component"
     ) -> Dict[str, Any]:
         """
-        Generates full dataset across all configured lots.
+        Generates full dataset across all configured production lots and simulated reference lots.
         Returns dictionary containing:
-        - raw_records: list of all point-in-time parametric measurements
-        - components_meta: metadata per component (lot, part_type, latent_behavior, is_defective)
-        - lots_meta: lot summaries
+        - records: list of all point-in-time parametric measurements
+        - components: metadata per component (lot, part_type, latent_behavior, is_defective, test hardware)
+        - lots: lot summaries (including reference lots)
         """
         all_records = []
         components_meta = {}
         base_time = datetime(2026, 3, 15, 8, 0, 0)
         target_comp = target_defect_comp_id or HERO_COMPONENT_ID
 
-        for lot in LOT_CONFIGS:
+        # Combine production lots with simulated reference lots
+        all_lots = LOT_CONFIGS + REFERENCE_LOT_CONFIGS
+
+        for lot in all_lots:
             lot_id = lot["lot_id"]
             part_type = lot["part_type"]
             sample_size = lot["sample_size"]
+            is_ref = lot.get("is_reference", False)
 
             for i in range(1, sample_size + 1):
-                comp_id = f"C-{i:03d}"
-                # For LOT-A17, map C-104 explicitly
-                if lot_id == HERO_LOT_ID and i == 4:
-                    comp_id = HERO_COMPONENT_ID
+                # ID prefix: C-xxx for prod, R-xxx for ref
+                if is_ref:
+                    comp_id = f"R-{lot_id[-2:]}-{i:02d}"
+                else:
+                    comp_id = f"C-{i:03d}"
+                    if lot_id == HERO_LOT_ID and i == 4:
+                        comp_id = HERO_COMPONENT_ID
 
-                # Assign latent defect behavior
-                behavior, is_defective = self._assign_behavior(lot_id, comp_id, inject_hero_defect, target_comp)
-                
+                # Assign test hardware metadata deterministically
+                chan_idx = (i - 1) % len(TEST_CHANNELS)
+                chamber_idx = (i - 1) % len(TEST_CHAMBERS)
+                sys_idx = 0 if chamber_idx == 0 else 1
+
+                test_chan = TEST_CHANNELS[chan_idx]
+                chamber = TEST_CHAMBERS[chamber_idx]
+                test_sys = TEST_SYSTEMS[sys_idx]
+
+                # Ensure C-104 is always on CHANNEL-A in CHAMBER-01
+                if comp_id == HERO_COMPONENT_ID:
+                    test_chan = "CHANNEL-A"
+                    chamber = "CHAMBER-01"
+                    test_sys = "SYS-01"
+
+                # Assign behavior based on scenario
+                behavior, is_defective = self._assign_behavior_scenario(
+                    lot_id=lot_id,
+                    comp_id=comp_id,
+                    is_ref=is_ref,
+                    inject_hero_defect=inject_hero_defect,
+                    target_comp=target_comp,
+                    demo_scenario=demo_scenario,
+                    test_channel=test_chan,
+                    index=i
+                )
+
                 components_meta[comp_id] = {
                     "component_id": comp_id,
                     "lot_id": lot_id,
                     "part_type": part_type,
                     "latent_behavior": behavior,
-                    "is_defective": is_defective
+                    "is_defective": is_defective,
+                    "is_reference": is_ref,
+                    "test_channel_id": test_chan,
+                    "chamber_id": chamber,
+                    "test_system_id": test_sys
                 }
 
                 comp_records = self._generate_component_trajectory(
@@ -69,45 +118,90 @@ class BurnInDataGenerator:
                     lot=lot,
                     behavior=behavior,
                     base_time=base_time,
-                    max_hour=hours
+                    max_hour=hours,
+                    test_channel=test_chan,
+                    demo_scenario=demo_scenario,
+                    is_ref=is_ref
                 )
                 all_records.extend(comp_records)
+
+        lots_meta = {l["lot_id"]: l for l in all_lots}
 
         return {
             "records": all_records,
             "components": components_meta,
-            "lots": {l["lot_id"]: l for l in LOT_CONFIGS}
+            "lots": lots_meta
         }
 
-    def _assign_behavior(
+    def _assign_behavior_scenario(
         self,
         lot_id: str,
         comp_id: str,
+        is_ref: bool,
         inject_hero_defect: bool,
-        target_comp: str = HERO_COMPONENT_ID
+        target_comp: str,
+        demo_scenario: str,
+        test_channel: str,
+        index: int
     ) -> tuple[str, bool]:
         """
-        Assigns subtle degradation modes across lot samples deterministically.
+        Assigns degradation modes across lot samples deterministically according to the active scenario.
         """
+        # Simulated Reference lots are always 100% healthy controls
+        if is_ref:
+            return "HEALTHY", False
+
+        # Scenario 1: Isolated Component Anomaly
+        if demo_scenario == "isolated_component":
+            if comp_id == target_comp:
+                if inject_hero_defect:
+                    return "HERO_PROGRESSIVE_DEFECT", True
+                return "HEALTHY", False
+            return self._assign_nominal_background_behavior(lot_id, comp_id)
+
+        # Scenario 2: Common-Cause Lot Drift (LOT-A17 drifts population-wide)
+        elif demo_scenario == "lot_drift":
+            if lot_id == HERO_LOT_ID:
+                # 72% of components in LOT-A17 show coordinated drift
+                if index % 4 != 0:
+                    return "LOT_COORDINATED_DRIFT", True
+                return "HEALTHY", False
+            return self._assign_nominal_background_behavior(lot_id, comp_id)
+
+        # Scenario 3: Test-System / Measurement Drift (CHANNEL-A shifts across ALL lots)
+        elif demo_scenario == "test_system_drift":
+            if test_channel == "CHANNEL-A":
+                return "TEST_CHANNEL_DRIFT", True
+            return self._assign_nominal_background_behavior(lot_id, comp_id)
+
+        # Scenario 4: Combined Component + Lot Risk
+        elif demo_scenario == "combined_risk":
+            if comp_id == target_comp:
+                return "HERO_PROGRESSIVE_DEFECT", True
+            if lot_id == HERO_LOT_ID and index % 3 != 0:
+                return "LOT_COORDINATED_DRIFT", True
+            return self._assign_nominal_background_behavior(lot_id, comp_id)
+
+        # Default fallback
         if comp_id == target_comp:
             if inject_hero_defect:
                 return "HERO_PROGRESSIVE_DEFECT", True
             return "HEALTHY", False
+        return self._assign_nominal_background_behavior(lot_id, comp_id)
 
-        # Controlled distribution for other components:
-        # 80% Healthy, 5% Thermal Drift, 5% Current Drift, 3% Voltage Instability, 4% Combined Degradation, 3% Sensor Noise
-        # Use deterministic hash of comp_id and lot_id
+    def _assign_nominal_background_behavior(self, lot_id: str, comp_id: str) -> tuple[str, bool]:
+        """
+        Controlled baseline distribution for non-hero components.
+        """
         h = abs(hash(f"{lot_id}_{comp_id}_{self.seed}")) % 100
-        if h < 78:
+        if h < 84:
             return "HEALTHY", False
-        elif h < 84:
-            return "THERMAL_DRIFT", True
         elif h < 90:
+            return "THERMAL_DRIFT", True
+        elif h < 95:
             return "CURRENT_DRIFT", True
-        elif h < 94:
+        elif h < 98:
             return "VOLTAGE_INSTABILITY", True
-        elif h < 97:
-            return "COMBINED_DEGRADATION", True
         else:
             return "SENSOR_NOISE", False
 
@@ -117,20 +211,23 @@ class BurnInDataGenerator:
         lot: Dict[str, Any],
         behavior: str,
         base_time: datetime,
-        max_hour: int = 168
+        max_hour: int = 168,
+        test_channel: str = "CHANNEL-A",
+        demo_scenario: str = "isolated_component",
+        is_ref: bool = False
     ) -> List[Dict[str, Any]]:
         """
-        Generates physically correlated hourly trajectory for a component.
+        Generates physically correlated hourly trajectory for a component with test hardware attribution.
         """
-        # Component-level intrinsic baseline offsets (semiconductor process variation)
         comp_seed = abs(hash(f"{comp_id}_{lot['lot_id']}_{self.seed}")) % (2**31 - 1)
         comp_rng = np.random.default_rng(comp_seed)
 
-        # Intrinsic offsets around lot baseline
-        t_offset = comp_rng.normal(0.0, 1.2)
-        leakage_offset = comp_rng.normal(0.0, 1.5)
-        v_offset = comp_rng.normal(0.0, 0.012)
-        i_offset = comp_rng.normal(0.0, 2.5)
+        # Intrinsic offsets around lot baseline (tight process window for reference lots)
+        spread_scale = 0.5 if is_ref else 1.0
+        t_offset = comp_rng.normal(0.0, 1.2 * spread_scale)
+        leakage_offset = comp_rng.normal(0.0, 1.5 * spread_scale)
+        v_offset = comp_rng.normal(0.0, 0.012 * spread_scale)
+        i_offset = comp_rng.normal(0.0, 2.5 * spread_scale)
 
         base_t = lot["baseline_temp"] + t_offset
         base_leakage = lot["baseline_leakage"] + leakage_offset
@@ -142,74 +239,68 @@ class BurnInDataGenerator:
         for h in range(max_hour + 1):
             ts = base_time + timedelta(hours=h)
 
-            # Nominal measurement noise
             meas_t_noise = comp_rng.normal(0.0, 0.35)
             meas_leakage_noise = comp_rng.normal(0.0, 0.45)
             meas_v_noise = comp_rng.normal(0.0, 0.005)
             meas_i_noise = comp_rng.normal(0.0, 0.60)
 
-            # Nominal aging drift across 168h in standard healthy devices (very slight bathtub / stabilization)
             nominal_aging = 0.008 * np.log1p(h)
 
-            # Dynamic progressive drift contributions based on latent defect
             drift_t = 0.0
             drift_leakage = 0.0
             drift_v = 0.0
             drift_i = 0.0
             v_jitter = 0.0
 
+            # 1. HERO PROGRESSIVE DEFECT (Isolated Component)
             if behavior == "HERO_PROGRESSIVE_DEFECT":
-                # Crucial Hero Component Progression:
-                # 0-8h: completely normal
-                # 8-15h: subtle thermal drift
-                # 15-20h: current variance increases
-                # 20-24h: lot relative deviation becomes noticeable
-                # 24h+: forecast diverges toward safety threshold
                 if h > 8:
-                    # Subtle progressive thermal drift
                     drift_t = 0.22 * (h - 8) ** 1.08
                 if h > 15:
-                    # Leakage and current drift correlated with thermal escalation
                     drift_leakage = 0.38 * (h - 15) ** 1.15
                     drift_i = 0.42 * (h - 15) ** 1.05
                     v_jitter = comp_rng.normal(0.0, 0.015 * min(3.0, (h - 15) / 10.0))
-            
+
+            # 2. COMMON-CAUSE LOT COORDINATED DRIFT
+            elif behavior == "LOT_COORDINATED_DRIFT":
+                # Subtle coordinated wafer-level oxidation/passivation shift across entire lot
+                if h > 10:
+                    drift_t = 0.14 * (h - 10) ** 1.02
+                    drift_leakage = 0.22 * (h - 10) ** 1.05
+                    drift_i = 0.18 * (h - 10)
+
+            # 3. TEST-SYSTEM / CHANNEL-SPECIFIC MEASUREMENT DRIFT
+            elif behavior == "TEST_CHANNEL_DRIFT":
+                # Sensor amp drift / measurement instrumentation offset on this channel
+                if h > 8:
+                    drift_leakage = 0.32 * (h - 8) ** 1.04
+                    drift_t = 0.10 * (h - 8)
+                    v_jitter = 0.018 * min(2.5, (h - 8) / 15.0)
+
             elif behavior == "THERMAL_DRIFT":
-                # Gradual thermal runaway / heat-sink voiding
                 if h > 10:
                     drift_t = 0.18 * (h - 10) ** 1.05
                     drift_leakage = 0.25 * (h - 10) ** 1.08
 
             elif behavior == "CURRENT_DRIFT":
-                # Gate oxide leakage / electro-migration precursor
                 if h > 12:
                     drift_leakage = 0.35 * (h - 12) ** 1.12
                     drift_i = 0.45 * (h - 12) ** 1.08
 
             elif behavior == "VOLTAGE_INSTABILITY":
-                # Internal bandgap reference instability / regulator oscillation
                 if h > 14:
                     v_jitter = comp_rng.normal(0.0, 0.012 + 0.001 * (h - 14))
 
-            elif behavior == "COMBINED_DEGRADATION":
-                # Multi-channel subtle degradation
-                if h > 10:
-                    drift_t = 0.12 * (h - 10)
-                    drift_leakage = 0.22 * (h - 10)
-                    drift_i = 0.25 * (h - 10)
-
             elif behavior == "SENSOR_NOISE":
-                # Sporadic isolated spike at h=36 and h=102 without physical degradation
                 if h in (36, 102):
                     meas_t_noise += comp_rng.choice([-6.5, 7.2])
                     meas_leakage_noise += comp_rng.choice([-5.0, 6.0])
 
-            # Calculate instantaneous values
             cur_temp = base_t + nominal_aging * 2.0 + drift_t + meas_t_noise
             cur_leakage = base_leakage + nominal_aging * 1.5 + drift_leakage + (0.15 * drift_t) + meas_leakage_noise
             cur_v = base_v + v_jitter + meas_v_noise
             cur_i = base_i + nominal_aging * 3.0 + drift_i + (0.35 * drift_t) + meas_i_noise
-            cur_power = (cur_v * cur_i)  # P (mW) = V * I (mA)
+            cur_power = (cur_v * cur_i)
 
             records.append({
                 "component_id": comp_id,
@@ -222,7 +313,9 @@ class BurnInDataGenerator:
                 "voltage": round(float(cur_v), 4),
                 "current": round(float(cur_i), 2),
                 "power": round(float(cur_power), 2),
-                "is_checkpoint": h in CHECKPOINTS
+                "is_checkpoint": h in CHECKPOINTS,
+                "test_channel_id": test_channel,
+                "is_reference": is_ref
             })
 
         return records
